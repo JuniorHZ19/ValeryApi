@@ -1,0 +1,72 @@
+### Valex API — peticiones de ejemplo (extensión "REST Client" de VS Code)
+@api = http://localhost:5058
+# Pega aquí el token que devuelve el login:
+@token = PEGA_EL_TOKEN
+
+### Login
+POST {{api}}/api/auth/login
+Content-Type: application/json
+
+{ "username": "admin", "password": "Valerys-Admin-2026!" }
+
+### Información del negocio
+GET {{api}}/api/site
+
+### Contenido de la portada
+GET {{api}}/api/content
+
+### Catálogo público
+GET {{api}}/api/products
+
+### Catálogo con ocultos (admin)
+GET {{api}}/api/products?includeHidden=true
+Authorization: Bearer {{token}}
+
+### Detalle por slug
+GET {{api}}/api/products/grupo-personalizado
+
+### Crear producto (admin)
+POST {{api}}/api/products
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "name": "Nuevo amigurumi",
+  "description": "Descripción del modelo.",
+  "details": ["Detalle 1", "Detalle 2"],
+  "imageUrl": "/images/doll-1.jpg",
+  "price": null,
+  "isVisible": false,
+  "sortOrder": 10
+}
+
+### Editar producto (admin)
+PUT {{api}}/api/products/id/1
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "name": "Con su nombre",
+  "description": "Con su uniforme de trabajo, sus lentes dorados y un gafete con su nombre.",
+  "details": ["Lentes dorados", "Gafete personalizado", "Uniforme de trabajo"],
+  "imageUrl": "/images/doll-1.jpg",
+  "price": 95,
+  "isVisible": true,
+  "sortOrder": 1
+}
+
+### Borrar producto (admin)
+DELETE {{api}}/api/products/id/999
+Authorization: Bearer {{token}}
+
+### Subir imagen (admin)
+POST {{api}}/api/uploads
+Authorization: Bearer {{token}}
+Content-Type: multipart/form-data; boundary=valex
+
+--valex
+Content-Disposition: form-data; name="file"; filename="foto.jpg"
+Content-Type: image/jpeg
+
+< ../public/images/doll-1.jpg
+--valex--

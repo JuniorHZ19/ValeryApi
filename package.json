@@ -1,0 +1,31 @@
+{
+    "name":  "valex-api",
+    "version":  "1.0.0",
+    "private":  true,
+    "scripts":  {
+                    "dev":  "next dev -p 5058",
+                    "build":  "next build",
+                    "start":  "next start -p 5058",
+                    "typecheck":  "tsc --noEmit",
+                    "db:start":  "tsx scripts/db.ts start",
+                    "db:migrate":  "tsx scripts/db.ts migrate",
+                    "db:info":  "tsx scripts/db.ts info",
+                    "db:reset":  "tsx scripts/db.ts reset"
+                },
+    "dependencies":  {
+                         "@vercel/blob":  "^2.8.2",
+                         "jose":  "^6.2.13",
+                         "next":  "^16.4.2",
+                         "postgres":  "^3.4.9",
+                         "react":  "^19.3.1",
+                         "react-dom":  "^19.3.1",
+                         "zod":  "^4.6.7"
+                     },
+    "devDependencies":  {
+                            "@types/node":  "^22.20.5",
+                            "@types/react":  "^19.3.0",
+                            "embedded-postgres":  "^18.4.0-beta.17",
+                            "tsx":  "^4.20.6",
+                            "typescript":  "^5.9.3"
+                        }
+}
