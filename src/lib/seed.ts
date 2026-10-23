@@ -18,6 +18,9 @@ export const SEED_SITE: SiteSettings = {
   heroImageUrl: '/images/dolls-group.jpg',
 };
 
+/** Seed products are all amigurumis: they go into the "peluches" category created by the migrations. */
+export type SeedProduct = Omit<ProductWrite, 'categoryId'>;
+
 const product = (
   sortOrder: number,
   slug: string,
@@ -26,7 +29,7 @@ const product = (
   imageAlt: string,
   description: string,
   details: string[],
-): ProductWrite => ({
+): SeedProduct => ({
   slug,
   name,
   imageUrl,
@@ -39,7 +42,7 @@ const product = (
   sortOrder,
 });
 
-export const SEED_PRODUCTS: ProductWrite[] = [
+export const SEED_PRODUCTS: SeedProduct[] = [
   product(
     1,
     'con-su-nombre',

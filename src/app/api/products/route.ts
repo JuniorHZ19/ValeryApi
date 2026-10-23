@@ -7,12 +7,15 @@ export const dynamic = 'force-dynamic';
 
 export const OPTIONS = preflight;
 
-/** Catalog in display order. `?includeHidden=true` also returns hidden products, for admins only. */
+/**
+ * Catalog in display order. `?category=peluches` limits it to one category (by slug).
+ * `?includeHidden=true` also returns hidden products, for admins only.
+ */
 export async function GET(req: Request) {
   return run(req, async () => {
-    const wantsHidden = new URL(req.url).searchParams.get('includeHidden') === 'true';
-    const includeHidden = wantsHidden && (await isAdmin(req));
-    return json(req, await db().listProducts(includeHidden));
+    const params = new URL(req.url).searchParams;
+    const includeHidden = params.get('includeHidden') === 'true' && (await isAdmin(req));
+    return json(req, await db().listProducts(includeHidden, params.get('category') || undefined));
   });
 }
 

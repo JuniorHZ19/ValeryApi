@@ -105,6 +105,8 @@ Objeto `Product`:
   "sizeInfo": null,
   "isVisible": true,
   "sortOrder": 1,
+  "categoryId": 1,
+  "category": { "id": 1, "slug": "peluches", "name": "Peluches" },
   "createdAt": "2026-10-22T18:58:41.000Z",
   "updatedAt": "2026-10-22T18:58:41.000Z"
 }
@@ -112,7 +114,7 @@ Objeto `Product`:
 
 ### `GET /api/products` — público
 
-Catálogo visible, ordenado por `sortOrder` y luego por `id`. Con `?includeHidden=true` y un token de admin, también devuelve los ocultos. Sin token, el parámetro se ignora.
+Catálogo visible, ordenado por `sortOrder` y luego por `id`. Con `?category=peluches` solo devuelve los productos de esa categoría (por su slug). Con `?includeHidden=true` y un token de admin, también devuelve los ocultos. Sin token, el parámetro se ignora.
 
 200: `Product[]`
 
@@ -133,7 +135,8 @@ Body (`ProductInput`):
   "price": 120.5,
   "sizeInfo": "25 cm aprox.",
   "isVisible": true,
-  "sortOrder": 5
+  "sortOrder": 5,
+  "categoryId": 1
 }
 ```
 
@@ -143,10 +146,11 @@ Body (`ProductInput`):
 | `imageUrl` | obligatorio, máximo 500 caracteres |
 | `description` | máximo 2000 caracteres |
 | `details` | máximo 12, de 80 caracteres cada uno. Se quitan los vacíos y los repetidos |
-| `imageAlt` | si va vacío, se usa "Amigurumi {name}" |
+| `imageAlt` | si va vacío, se usa el nombre |
 | `price` | de 0 a 100000, o `null` |
 | `sizeInfo` | máximo 200 caracteres; vacío pasa a `null` |
 | `sortOrder` | entero de 0 a 10000 |
+| `categoryId` | obligatorio, id de una categoría existente |
 
 201: el `Product` creado.
 
@@ -163,6 +167,53 @@ Body: `ProductInput` completo. Reemplaza el producto entero; los campos omitidos
 ### `DELETE /api/products/id/{id}` — admin
 
 204 sin cuerpo. Sus detalles se borran en cascada, y su imagen subida también si nadie más la usa.
+
+---
+
+## Categorías
+
+Cada producto pertenece a una categoría (Peluches, Ropa, Polos...). Al crear la base se cargan **Peluches** y **Ropa**; las demás se agregan desde el panel.
+
+Objeto `Category`:
+```json
+{ "id": 1, "slug": "peluches", "name": "Peluches", "description": "", "sortOrder": 1, "productCount": 5 }
+```
+`productCount` cuenta los productos visibles. Con `?includeHidden=true` y un token de admin, cuenta todos.
+
+### `GET /api/categories` — público
+
+Categorías ordenadas por `sortOrder` y luego por `id`. Para el menú de la web.
+
+200: `Category[]`
+
+### `POST /api/categories` — admin
+
+Body:
+```json
+{ "name": "Polos", "description": "Polos estampados y personalizados", "sortOrder": 3 }
+```
+
+| Campo | Regla |
+|---|---|
+| `name` | obligatorio, máximo 60 caracteres. No puede repetirse: el slug sale del nombre ("Polos" → `polos`) |
+| `description` | máximo 300 caracteres |
+| `sortOrder` | entero de 0 a 10000 |
+
+201: la `Category` creada · 409 si ya existe una con ese nombre.
+
+### `GET /api/categories/{id}` — admin
+
+200: `Category`, contando todos sus productos · 404 si no existe.
+
+### `PUT /api/categories/{id}` — admin
+
+Body: el mismo de `POST`. Si cambia el nombre, cambia el slug.
+
+200: la `Category` actualizada.
+
+### `DELETE /api/categories/{id}` — admin
+
+204 sin cuerpo · 409 si todavía tiene productos (primero hay que moverlos a otra categoría).
 
 ---
 
@@ -188,6 +239,7 @@ Sirve las imágenes subidas en desarrollo local. En producción las sirve Vercel
 
 ```
 site_settings (1 fila, id = 1)
+categories ───────< products (category_id → categories.id, ON DELETE RESTRICT)
 products ─────────< product_details (product_id → products.id, ON DELETE CASCADE)
 content_items (section: highlight | step | occasion)
 schema_migrations (control de migraciones)

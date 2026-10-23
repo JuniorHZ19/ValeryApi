@@ -20,9 +20,16 @@ export const productInputSchema = z.object({
     .transform((v) => (v ? v : null)),
   isVisible: z.boolean().default(true),
   sortOrder: z.number().int().min(0).max(10000).default(0),
+  categoryId: z.number({ error: 'Elige una categoría.' }).int().positive('Elige una categoría.'),
 });
 
 export type ProductInput = z.infer<typeof productInputSchema>;
+
+export const categoryInputSchema = z.object({
+  name: text(60).min(1, 'Escribe un nombre.'),
+  description: text(300).default(''),
+  sortOrder: z.number().int().min(0).max(10000).default(0),
+});
 
 export const siteSettingsSchema = z.object({
   name: text(80).min(1),

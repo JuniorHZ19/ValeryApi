@@ -12,12 +12,30 @@ export interface Product {
   sizeInfo: string | null;
   isVisible: boolean;
   sortOrder: number;
+  categoryId: number;
+  /** The product's category, for links and labels. */
+  category: CategoryRef;
   createdAt: string;
   updatedAt: string;
 }
 
 /** Validated body of create/update, plus the slug computed on the server. */
-export type ProductWrite = Omit<Product, 'id' | 'createdAt' | 'updatedAt'>;
+export type ProductWrite = Omit<Product, 'id' | 'category' | 'createdAt' | 'updatedAt'>;
+
+export interface Category {
+  id: number;
+  slug: string;
+  name: string;
+  description: string;
+  sortOrder: number;
+  /** Visible products in it (all products when an admin asks with includeHidden). */
+  productCount: number;
+}
+
+export type CategoryRef = Pick<Category, 'id' | 'slug' | 'name'>;
+
+/** Validated body of create/update, plus the slug computed on the server. */
+export type CategoryWrite = Omit<Category, 'id' | 'productCount'>;
 
 export interface SiteSettings {
   name: string;
@@ -50,7 +68,8 @@ export interface Repository {
   getSite(): Promise<SiteSettings>;
   updateSite(site: SiteSettings): Promise<SiteSettings>;
   listContent(): Promise<ContentItem[]>;
-  listProducts(includeHidden: boolean): Promise<Product[]>;
+  /** `categorySlug` limits the list to one category. */
+  listProducts(includeHidden: boolean, categorySlug?: string): Promise<Product[]>;
   getProductBySlug(slug: string): Promise<Product | null>;
   getProductById(id: number): Promise<Product | null>;
   createProduct(data: ProductWrite): Promise<Product>;
@@ -59,4 +78,12 @@ export interface Repository {
   slugExists(slug: string, exceptId?: number): Promise<boolean>;
   /** True when a product or the site settings still reference the image. */
   isImageInUse(url: string): Promise<boolean>;
+  /** `countHidden` also counts hidden products in productCount. */
+  listCategories(countHidden: boolean): Promise<Category[]>;
+  getCategoryById(id: number): Promise<Category | null>;
+  categorySlugExists(slug: string, exceptId?: number): Promise<boolean>;
+  createCategory(data: CategoryWrite): Promise<Category>;
+  updateCategory(id: number, data: CategoryWrite): Promise<Category | null>;
+  /** Fails with a FK error while products still use it; callers check productCount first. */
+  deleteCategory(id: number): Promise<Category | null>;
 }

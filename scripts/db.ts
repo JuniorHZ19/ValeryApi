@@ -26,6 +26,8 @@ async function start(): Promise<void> {
     password: LOCAL.password,
     port: LOCAL.port,
     persistent: true,
+    // Without these, initdb takes the Windows code page (WIN1252), which can't store emojis or "→".
+    initdbFlags: ['--encoding=UTF8', '--locale=C'],
   });
 
   if (!existsSync(path.join(DATA_DIR, 'PG_VERSION'))) {
@@ -33,7 +35,7 @@ async function start(): Promise<void> {
     await pg.initialise();
   }
   await pg.start();
-  await pg.createDatabase(LOCAL.database).catch(() => undefined); // already exists
+  await createUtf8Database();
 
   console.log(`PostgreSQL ready: postgres://${LOCAL.user}:${LOCAL.password}@localhost:${LOCAL.port}/${LOCAL.database}`);
   console.log('Press Ctrl+C to stop.');
@@ -45,6 +47,24 @@ async function start(): Promise<void> {
   process.on('SIGINT', stop);
   process.on('SIGTERM', stop);
   await new Promise(() => {}); // keep running
+}
+
+/**
+ * Creates the local database in UTF8 (like Neon) when it doesn't exist. template0 is required to pick an
+ * encoding different from the cluster's: clusters created before initdbFlags existed are WIN1252.
+ */
+async function createUtf8Database(): Promise<void> {
+  const admin = postgres({ ...LOCAL, host: 'localhost', database: 'postgres', max: 1, onnotice: () => {} });
+  try {
+    const [exists] = await admin`select 1 from pg_database where datname = ${LOCAL.database}`;
+    if (!exists) {
+      await admin.unsafe(
+        `create database ${LOCAL.database} encoding 'UTF8' template template0 lc_collate 'C' lc_ctype 'C'`,
+      );
+    }
+  } finally {
+    await admin.end();
+  }
 }
 
 function connect() {

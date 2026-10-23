@@ -2,10 +2,12 @@ const ENDPOINTS = [
   ['GET', '/api/site', 'Información del negocio'],
   ['PUT', '/api/site', 'Actualizar información (admin)'],
   ['GET', '/api/content', 'Ventajas, pasos y ocasiones'],
-  ['GET', '/api/products', 'Catálogo (?includeHidden=true para admin)'],
+  ['GET', '/api/products', 'Catálogo (?category=slug para filtrar · ?includeHidden=true para admin)'],
   ['GET', '/api/products/{slug}', 'Detalle de un producto'],
   ['POST', '/api/products', 'Crear producto (admin)'],
   ['GET · PUT · DELETE', '/api/products/id/{id}', 'Leer, editar o borrar por id (admin)'],
+  ['GET · POST', '/api/categories', 'Categorías con su número de productos · crear (admin)'],
+  ['GET · PUT · DELETE', '/api/categories/{id}', 'Leer, editar o borrar una categoría (admin)'],
   ['POST', '/api/uploads', 'Subir imagen (admin, multipart "file")'],
   ['POST', '/api/auth/login', 'Iniciar sesión → JWT'],
 ];

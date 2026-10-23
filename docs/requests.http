@@ -37,7 +37,8 @@ Content-Type: application/json
   "imageUrl": "/images/doll-1.jpg",
   "price": null,
   "isVisible": false,
-  "sortOrder": 10
+  "sortOrder": 10,
+  "categoryId": 1
 }
 
 ### Editar producto (admin)
@@ -52,11 +53,36 @@ Content-Type: application/json
   "imageUrl": "/images/doll-1.jpg",
   "price": 95,
   "isVisible": true,
-  "sortOrder": 1
+  "sortOrder": 1,
+  "categoryId": 1
 }
 
 ### Borrar producto (admin)
 DELETE {{api}}/api/products/id/999
+Authorization: Bearer {{token}}
+
+### Categorías
+GET {{api}}/api/categories
+
+### Productos de una categoría
+GET {{api}}/api/products?category=peluches
+
+### Crear categoría (admin)
+POST {{api}}/api/categories
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "name": "Polos", "description": "Polos estampados y personalizados", "sortOrder": 3 }
+
+### Editar categoría (admin)
+PUT {{api}}/api/categories/2
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "name": "Ropa", "description": "Polos, blusas y más", "sortOrder": 2 }
+
+### Borrar categoría (admin): 409 si tiene productos
+DELETE {{api}}/api/categories/999
 Authorization: Bearer {{token}}
 
 ### Subir imagen (admin)

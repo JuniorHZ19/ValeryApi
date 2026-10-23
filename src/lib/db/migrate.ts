@@ -49,9 +49,10 @@ export async function seedIfEmpty(sql: Sql): Promise<boolean> {
 
     for (const p of SEED_PRODUCTS) {
       const [{ id }] = await tx<{ id: number }[]>`
-        insert into products (slug, name, description, image_url, image_alt, price, size_info, is_visible, sort_order)
+        insert into products (slug, name, description, image_url, image_alt, price, size_info, is_visible, sort_order,
+                              category_id)
         values (${p.slug}, ${p.name}, ${p.description}, ${p.imageUrl}, ${p.imageAlt}, ${p.price}, ${p.sizeInfo},
-                ${p.isVisible}, ${p.sortOrder})
+                ${p.isVisible}, ${p.sortOrder}, (select id from categories where slug = 'peluches'))
         returning id`;
       for (const [position, text] of p.details.entries()) {
         await tx`insert into product_details (product_id, position, text) values (${id}, ${position}, ${text})`;

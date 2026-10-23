@@ -1,14 +1,14 @@
 import type { Repository } from './types';
 
 /** "Con su Nombre ñandú!" → "con-su-nombre-nandu". */
-export function slugify(text: string): string {
+export function slugify(text: string, fallback = 'producto'): string {
   const slug = text
     .normalize('NFD')
     .replace(/[̀-ͯ]/g, '')
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
-  return slug || 'producto';
+  return slug || fallback;
 }
 
 /** Segments used by sibling routes under /api/products, so a product can't take them. */

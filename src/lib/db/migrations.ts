@@ -82,4 +82,79 @@ export const MIGRATIONS: Migration[] = [
       create index content_items_section_idx on content_items (section, sort_order);
     `,
   },
+  {
+    id: '002_videos',
+    sql: /* sql */ `
+      -- Facebook videos for the videos section. Only the link is stored; the embed is built from it.
+      create table videos (
+        id          integer generated always as identity primary key,
+        title       varchar(120) not null default '',
+        url         varchar(500) not null check (url ~ '^https://'),
+        is_visible  boolean      not null default true,
+        sort_order  integer      not null default 0 check (sort_order between 0 and 10000),
+        created_at  timestamptz  not null default now(),
+        updated_at  timestamptz  not null default now()
+      );
+      create index videos_public_idx on videos (is_visible, sort_order, id);
+      create trigger videos_updated_at before update on videos
+        for each row execute function set_updated_at();
+    `,
+  },
+  {
+    id: '003_video_embeds',
+    sql: /* sql */ `
+      -- Videos come from Facebook's embed code: keep its exact player URL and size.
+      -- Rows saved before this have embed_url null and use a player built from url.
+      alter table videos
+        add column embed_url varchar(1000) check (embed_url ~ '^https://'),
+        add column width     smallint check (width > 0),
+        add column height    smallint check (height > 0);
+    `,
+  },
+  {
+    id: '004_youtube_videos',
+    sql: /* sql */ `
+      -- The videos section now uses YouTube only: Facebook refuses to embed most videos (music rights).
+      -- Facebook rows can't be shown, so they are removed; every remaining row has a YouTube player and size.
+      delete from videos where embed_url is null or embed_url not like 'https://www.youtube-nocookie.com/embed/%';
+      alter table videos
+        alter column embed_url set not null,
+        alter column width     set not null,
+        alter column height    set not null,
+        add constraint videos_embed_url_youtube check (embed_url like 'https://www.youtube-nocookie.com/embed/%');
+    `,
+  },
+  {
+    id: '005_categories',
+    sql: /* sql */ `
+      -- Product categories (Peluches, Ropa, ...), managed from the admin panel.
+      create table categories (
+        id          integer generated always as identity primary key,
+        slug        varchar(80)  not null unique check (slug ~ '^[a-z0-9]+(-[a-z0-9]+)*$'),
+        name        varchar(60)  not null check (length(trim(name)) > 0),
+        description varchar(300) not null default '',
+        sort_order  integer      not null default 0 check (sort_order between 0 and 10000),
+        created_at  timestamptz  not null default now(),
+        updated_at  timestamptz  not null default now()
+      );
+      create trigger categories_updated_at before update on categories
+        for each row execute function set_updated_at();
+
+      insert into categories (slug, name, sort_order) values ('peluches', 'Peluches', 1), ('ropa', 'Ropa', 2);
+
+      -- Every product belongs to one category. Existing products are amigurumis: Peluches.
+      -- A category can't be deleted while products use it (on delete restrict).
+      alter table products add column category_id integer references categories (id) on delete restrict;
+      update products set category_id = (select id from categories where slug = 'peluches');
+      alter table products alter column category_id set not null;
+      create index products_category_idx on products (category_id, is_visible, sort_order);
+    `,
+  },
+  {
+    id: '006_drop_videos',
+    sql: /* sql */ `
+      -- The videos section was removed from the site and the API.
+      drop table videos;
+    `,
+  },
 ];

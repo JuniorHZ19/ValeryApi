@@ -1,8 +1,19 @@
-import postgres, { type Sql, type TransactionSql as Tx } from 'postgres';
-import type { ContentItem, Product, ProductWrite, Repository, SiteSettings } from '../types';
+import postgres, { type PendingQuery, type Row, type Sql, type TransactionSql as Tx } from 'postgres';
+import type {
+  Category,
+  CategoryRef,
+  CategoryWrite,
+  ContentItem,
+  Product,
+  ProductWrite,
+  Repository,
+  SiteSettings,
+} from '../types';
 import { migrate, seedIfEmpty } from './migrate';
 
 interface ProductRow {
+  category_id: number;
+  category: CategoryRef;
   id: number;
   slug: string;
   name: string;
@@ -31,6 +42,8 @@ const toProduct = (r: ProductRow): Product => ({
   sizeInfo: r.size_info,
   isVisible: r.is_visible,
   sortOrder: r.sort_order,
+  categoryId: r.category_id,
+  category: r.category,
   createdAt: r.created_at.toISOString(),
   updatedAt: r.updated_at.toISOString(),
 });
@@ -75,25 +88,23 @@ export class PostgresRepository implements Repository {
       from content_items order by section, sort_order, id`;
   }
 
-  async listProducts(includeHidden: boolean) {
+  async listProducts(includeHidden: boolean, categorySlug?: string) {
     await this.init();
-    const rows = await this.sql<ProductRow[]>`
-      ${this.selectProducts()}
-      where ${includeHidden ? this.sql`true` : this.sql`p.is_visible`}
-      group by p.id
-      order by p.sort_order, p.id`;
+    const rows = await this.sql<ProductRow[]>`${this.selectProducts(this.sql`
+      ${includeHidden ? this.sql`true` : this.sql`p.is_visible`}
+      ${categorySlug ? this.sql`and c.slug = ${categorySlug}` : this.sql``}`)}`;
     return rows.map(toProduct);
   }
 
   async getProductBySlug(slug: string) {
     await this.init();
-    const [row] = await this.sql<ProductRow[]>`${this.selectProducts()} where p.slug = ${slug} group by p.id`;
+    const [row] = await this.sql<ProductRow[]>`${this.selectProducts(this.sql`p.slug = ${slug}`)}`;
     return row ? toProduct(row) : null;
   }
 
   async getProductById(id: number) {
     await this.init();
-    const [row] = await this.sql<ProductRow[]>`${this.selectProducts()} where p.id = ${id} group by p.id`;
+    const [row] = await this.sql<ProductRow[]>`${this.selectProducts(this.sql`p.id = ${id}`)}`;
     return row ? toProduct(row) : null;
   }
 
@@ -101,9 +112,10 @@ export class PostgresRepository implements Repository {
     await this.init();
     return this.sql.begin(async (tx) => {
       const [{ id }] = await tx<{ id: number }[]>`
-        insert into products (slug, name, description, image_url, image_alt, price, size_info, is_visible, sort_order)
+        insert into products (slug, name, description, image_url, image_alt, price, size_info, is_visible, sort_order,
+                              category_id)
         values (${d.slug}, ${d.name}, ${d.description}, ${d.imageUrl}, ${d.imageAlt}, ${d.price}, ${d.sizeInfo},
-                ${d.isVisible}, ${d.sortOrder})
+                ${d.isVisible}, ${d.sortOrder}, ${d.categoryId})
         returning id`;
       await this.replaceDetails(tx, id, d.details);
       return (await this.findById(tx, id))!;
@@ -116,7 +128,7 @@ export class PostgresRepository implements Repository {
       const updated = await tx`
         update products set slug = ${d.slug}, name = ${d.name}, description = ${d.description},
           image_url = ${d.imageUrl}, image_alt = ${d.imageAlt}, price = ${d.price}, size_info = ${d.sizeInfo},
-          is_visible = ${d.isVisible}, sort_order = ${d.sortOrder}
+          is_visible = ${d.isVisible}, sort_order = ${d.sortOrder}, category_id = ${d.categoryId}
         where id = ${id}`;
       if (updated.count === 0) return null;
       await this.replaceDetails(tx, id, d.details);
@@ -148,18 +160,76 @@ export class PostgresRepository implements Repository {
     return !!row;
   }
 
-  /** Product columns plus its details aggregated in order (empty array when it has none). */
-  private selectProducts() {
+  async listCategories(countHidden: boolean) {
+    await this.init();
+    return this.sql<Category[]>`
+      ${this.selectCategories(countHidden)}
+      group by c.id
+      order by c.sort_order, c.id`;
+  }
+
+  async getCategoryById(id: number) {
+    await this.init();
+    const [row] = await this.sql<Category[]>`${this.selectCategories(true)} where c.id = ${id} group by c.id`;
+    return row ?? null;
+  }
+
+  async categorySlugExists(slug: string, exceptId?: number) {
+    await this.init();
+    const [row] = await this.sql`select 1 from categories where slug = ${slug} and id <> ${exceptId ?? -1} limit 1`;
+    return !!row;
+  }
+
+  async createCategory(d: CategoryWrite) {
+    await this.init();
+    const [{ id }] = await this.sql<{ id: number }[]>`
+      insert into categories (slug, name, description, sort_order)
+      values (${d.slug}, ${d.name}, ${d.description}, ${d.sortOrder})
+      returning id`;
+    return (await this.getCategoryById(id))!;
+  }
+
+  async updateCategory(id: number, d: CategoryWrite) {
+    await this.init();
+    const updated = await this.sql`
+      update categories set slug = ${d.slug}, name = ${d.name}, description = ${d.description}, sort_order = ${d.sortOrder}
+      where id = ${id}`;
+    return updated.count ? this.getCategoryById(id) : null;
+  }
+
+  async deleteCategory(id: number) {
+    await this.init();
+    const category = await this.getCategoryById(id);
+    if (!category) return null;
+    await this.sql`delete from categories where id = ${id}`;
+    return category;
+  }
+
+  /** Category columns plus how many products it has (only visible ones unless `countHidden`). */
+  private selectCategories(countHidden: boolean) {
+    return this.sql`
+      select c.id, c.slug, c.name, c.description, c.sort_order as "sortOrder", count(p.id)::int as "productCount"
+      from categories c
+      left join products p on p.category_id = c.id and ${countHidden ? this.sql`true` : this.sql`p.is_visible`}`;
+  }
+
+  /** Products matching `where`, in catalog order, with their category and details (empty array when none). */
+  private selectProducts(where: PendingQuery<Row[]>) {
     return this.sql`
       select p.*,
+             json_build_object('id', c.id, 'slug', c.slug, 'name', c.name) as category,
              coalesce(array_agg(d.text order by d.position) filter (where d.text is not null), '{}') as details
       from products p
-      left join product_details d on d.product_id = p.id`;
+      join categories c on c.id = p.category_id
+      left join product_details d on d.product_id = p.id
+      where ${where}
+      group by p.id, c.id
+      order by p.sort_order, p.id`;
   }
 
   /** Reads a product inside a transaction, so it sees that transaction's own writes. */
   private async findById(tx: Tx, id: number): Promise<Product | null> {
-    const [row] = await tx<ProductRow[]>`${this.selectProducts()} where p.id = ${id} group by p.id`;
+    const [row] = await tx<ProductRow[]>`${this.selectProducts(this.sql`p.id = ${id}`)}`;
     return row ? toProduct(row) : null;
   }
 
